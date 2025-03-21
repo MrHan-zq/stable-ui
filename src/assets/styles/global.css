@@ -1,0 +1,21 @@
+.nav-menu{
+    background: #333333FF;
+}
+
+.el-menu--horizontal>.el-menu-item{
+    color: #ecf0f1;
+}
+
+.el-card{
+    border-radius: 8%;
+    --el-card-border-color: #6c6e70;
+}
+
+.el-card__body{
+    padding: 1px;
+    background: #333333;
+}
+.el-pagination.is-background .btn-next:disabled,
+.el-pagination.is-background .btn-prev:disabled{
+    background-color: #444648;
+}
