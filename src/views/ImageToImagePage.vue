@@ -647,7 +647,7 @@ export default {
 }
 .text-to-image-page {
   display: flex;
-  height: 100vh;
+  height: 100%;
   background-color: #282828;
 }
 

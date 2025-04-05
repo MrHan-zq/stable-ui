@@ -39,8 +39,7 @@
         <div class="image-container">
           <canvas
               ref="resultCanvas"
-              class="preview-image" style="height: 382px;"
-          ></canvas>
+              class="preview-image"></canvas>
         </div>
         <button
             class="download-button"
@@ -68,7 +67,6 @@ export default {
   },
   methods: {
     initCanvas() {
-      debugger;
       const canvas = this.$refs.resultCanvas;
       const containerWidth = this.$el.querySelector('.image-container').offsetWidth;
       canvas.width = containerWidth;
@@ -99,7 +97,6 @@ export default {
       const img = new Image();
       img.crossOrigin = "Anonymous";
       img.onload = () => {
-        debugger;
         const targetWidth = Math.max(img.width, this.canvasWidth / 2);
         const targetHeight = Math.max(img.height, this.canvasHeight / 2);
 
@@ -255,7 +252,7 @@ export default {
 
 .image-container {
   margin: 20px 0;
-  max-height: 77%;
+  max-height: 70%;
 }
 
 .preview-image {
