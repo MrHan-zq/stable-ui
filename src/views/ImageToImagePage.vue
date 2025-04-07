@@ -35,16 +35,23 @@
               <el-col :span="12">
                 <el-form-item label="采样方式">
                   <el-select v-model="samplingMethod" placeholder="请选择">
-                    <el-option label="Euler" value="euler"></el-option>
-                    <el-option label="wqeqw" value="wqeqw"></el-option>
-                    <el-option label="dsgffdg" value="dsgffdg"></el-option>
+                    <el-option  v-for="option in samplingOptions"
+                                :key="option.value"
+                                :label="option.label"
+                                :value="option.value"
+                                :disabled="option.disabled"></el-option>
                   </el-select>
                 </el-form-item>
               </el-col>
               <el-col :span="12">
-                <el-form-item label="LORA">
-                  <el-select v-model="lora" placeholder="请选择">
-                    <el-option label="Lora1" value="lora1"></el-option>
+                <el-form-item label="调度类型">
+                  <el-select v-model="schedulerType" placeholder="请选择">
+                    <el-option
+                        v-for="option in schedulerOptions"
+                        :key="option.value"
+                        :label="option.label"
+                        :value="option.value"
+                    ></el-option>
                   </el-select>
                 </el-form-item>
               </el-col>
@@ -56,10 +63,20 @@
                   <el-slider v-model="iterationSteps" :min="1" :max="100"></el-slider>
                 </el-form-item>
               </el-col>
-              <el-col :span="12">
+            </el-row>
+
+            <el-row :gutter="60" class="multiple-item">
+              <el-col :span="10">
                 <el-form-item label="风格选择">
                   <el-select v-model="style" placeholder="请选择">
-                    <el-option label="写实" value="realistic"></el-option>
+                    <el-option label="写实（real）" value="real"></el-option>
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="10">
+                <el-form-item label="类型选择">
+                  <el-select v-model="styleType" placeholder="请选择">
+                    <el-option label="自然（nature）" value="nature"></el-option>
                   </el-select>
                 </el-form-item>
               </el-col>
@@ -235,10 +252,10 @@ export default {
     const checkpoints = ref([]);
     const positivePrompt = ref('');
     const negativePrompt = ref('');
-    const samplingMethod = ref('euler');
     const lora = ref('lora1');
     const iterationSteps = ref(30);
-    const style = ref('写实');
+    const style = ref('写实（real）');
+    const styleType = ref('自然（nature）');
     const size = ref('512');
     const width = ref(512);
     const height = ref(512);
@@ -249,6 +266,49 @@ export default {
     const previewImages = ref(['https://placehold.co/600x400']);
     const currentIndex = ref(0);
     const loading = ref(false);
+
+    const schedulerType = ref('Automatic'); // 默认选中 "Automatic"
+
+    // 调度类型选项
+    const schedulerOptions = [
+      { label: 'Automatic', value: 'Automatic' },
+      { label: 'Uniform', value: 'Uniform' },
+      { label: 'Karras', value: 'Karras' },
+      { label: 'Exponential', value: 'Exponential' },
+      { label: 'Polyexponential', value: 'Polyexponential' },
+      { label: 'SGM Uniform', value: 'SGM Uniform' },
+      { label: 'KL Optimal', value: 'KL Optimal' },
+      { label: 'Align Your Steps', value: 'Align Your Steps' },
+      { label: 'Simple', value: 'Simple' },
+      { label: 'Normal', value: 'Normal' },
+      { label: 'DDIM', value: 'DDIM' },
+      { label: 'Beta', value: 'Beta' },
+    ];
+
+    // 采样方式选项
+    const samplingOptions = [
+      { label: 'DPM++ 2M', value: 'DPM++ 2M' },
+      { label: 'DPM++ SDE', value: 'DPM++ SDE', disabled: false }, // 默认选中
+      { label: 'DPM++ 2M SDE', value: 'DPM++ 2M SDE' },
+      { label: 'DPM++ 2M SDE Heun', value: 'DPM++ 2M SDE Heun' },
+      { label: 'DPM++ 2S a', value: 'DPM++ 2S a' },
+      { label: 'DPM++ 3M SDE', value: 'DPM++ 3M SDE' },
+      { label: 'Euler a', value: 'Euler a' },
+      { label: 'Euler', value: 'Euler' },
+      { label: 'LMS', value: 'LMS' },
+      { label: 'Heun', value: 'Heun' },
+      { label: 'DPM2', value: 'DPM2' },
+      { label: 'DPM2 a', value: 'DPM2 a' },
+      { label: 'DPM fast', value: 'DPM fast' },
+      { label: 'DPM adaptive', value: 'DPM adaptive' },
+      { label: 'DDIM', value: 'DDIM' },
+      { label: 'DDIM CFG++', value: 'DDIM CFG++' },
+      { label: 'PLMS', value: 'PLMS' },
+      { label: 'UniPC', value: 'UniPC' },
+      { label: 'LCM', value: 'LCM' },
+    ];
+    const samplingMethod = ref('DPM++ 2M');
+
 // 定义独立缓存键名
     const IMAGE_CACHE_KEY = 'imageToImageFormData';
     const CHECK_POINT_KEY = 'checkpointData';
@@ -264,13 +324,15 @@ export default {
         lora: lora.value,
         iterationSteps: iterationSteps.value,
         style: style.value,
+        styleType: styleType.value,
         size: size.value,
         width: width.value,
         height: height.value,
         quantity: quantity.value,
         randomSeed: randomSeed.value,
         guidanceScale: guidanceScale.value,
-        previewImage: previewImage.value // 新增图片缓存
+        previewImage: previewImage.value, // 新增图片缓存
+        schedulerType: schedulerType.value,
       };
       sessionStorage.setItem(IMAGE_CACHE_KEY, JSON.stringify(formData));
       sessionStorage.setItem(CHECK_POINT_KEY, checkpoint.value);
@@ -300,8 +362,10 @@ export default {
           negativePrompt.value = parsedData.negativePrompt || '';
           samplingMethod.value = parsedData.samplingMethod || 'euler';
           lora.value = parsedData.lora || 'lora1';
-          style.value = parsedData.style || '写实';
+          style.value = parsedData.style || '写实（real）';
+          styleType.value = parsedData.styleType || '自然（nature）';
           size.value = parsedData.size || '512';
+          schedulerType.value= parsedData.schedulerType || 'Automatic';
 
           // 图片数据（Base64可能较大）
           previewImage.value = parsedData.previewImage || 'https://placehold.co/600x400';
@@ -329,10 +393,12 @@ export default {
           seed: randomSeed.value,
           guidanceScale: guidanceScale.value,
           style: style.value,
+          styleType: styleType.value,
           base64String: previewImage.value, // 直接使用当前预览值
           lora: lora.value,
           quantity: quantity.value,
           size: size.value,
+          schedulerType:schedulerType.value,
         };
 
         // 后发起接口请求
@@ -516,6 +582,7 @@ export default {
       lora,
       iterationSteps,
       style,
+      styleType,
       size,
       width,
       height,
@@ -535,6 +602,9 @@ export default {
       handleHeightInput,
       handleRandomSeedInput,
       handleGuidanceScaleInput,
+      schedulerType,
+      schedulerOptions,
+      samplingOptions,
     };
   },
 };

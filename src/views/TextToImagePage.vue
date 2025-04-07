@@ -33,13 +33,63 @@
           <el-col :span="12">
             <el-form-item label="采样方式">
               <el-select v-model="samplingMethod" placeholder="请选择">
-                <el-option label="Euler" value="euler"></el-option>
-                <el-option label="wqeqw" value="wqeqw"></el-option>
-                <el-option label="dsgffdg" value="dsgffdg"></el-option>
+                <el-option  v-for="option in samplingOptions"
+                            :key="option.value"
+                            :label="option.label"
+                            :value="option.value"
+                            :disabled="option.disabled"></el-option>
               </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="12">
+            <el-form-item label="调度类型">
+              <el-select v-model="schedulerType" placeholder="请选择">
+                <el-option
+                    v-for="option in schedulerOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                ></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="20">
+          <el-col :span="20">
+            <el-form-item label="迭代步数">
+              <div class="slider-with-input">
+                <input type="number"
+                       v-model.number="iterationSteps"
+                       min="1"
+                       max="100"
+                       @input="handleIterationStepsInput"/>
+                <el-slider
+                    v-model="iterationSteps"
+                    :min="1"
+                    :max="100"
+                    @change="handleIterationStepsChange"></el-slider>
+              </div>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="60" class="multiple-item">
+          <el-col :span="5">
+            <el-form-item label="风格选择">
+              <el-select v-model="style" placeholder="请选择">
+                <el-option label="写实" value="realistic"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="5">
+            <el-form-item label="类型选择">
+              <el-select v-model="styleType" placeholder="请选择">
+                <el-option label="写实" value="realistic"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="5">
             <el-form-item label="LORA">
               <el-select v-model="lora" placeholder="请选择">
                 <el-option label="Lora1" value="lora1"></el-option>
@@ -47,21 +97,38 @@
             </el-form-item>
           </el-col>
         </el-row>
+        <!-- 高分辨率修复模块 -->
+        <div class="high-resolution-repair">
+          <el-checkbox v-model="highResolutionEnabled" style="margin-bottom: 10px;">启用高分辨率修复</el-checkbox>
 
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="迭代步骤">
-              <el-slider v-model="iterationSteps" :min="1" :max="100"></el-slider>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="风格选择">
-              <el-select v-model="style" placeholder="请选择">
-                <el-option label="写实" value="realistic"></el-option>
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
+          <el-row :gutter="20">
+            <el-col :span="12">
+              <el-form-item label="算法">
+                <el-select v-model="algorithm" placeholder="请选择" :disabled="!highResolutionEnabled">
+                  <el-option label="Latent" value="latent"></el-option>
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="放大倍数">
+                <el-slider v-model="magnificationFactor" :disabled="!highResolutionEnabled" :min="1" :max="10" :step="0.1"></el-slider>
+              </el-form-item>
+            </el-col>
+          </el-row>
+
+          <el-row :gutter="20">
+            <el-col :span="12">
+              <el-form-item label="重绘强度">
+                <el-slider v-model="redrawIntensity" :disabled="!highResolutionEnabled" :min="0" :max="1" :step="0.01"></el-slider>
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="高分迭代步骤">
+                <el-slider v-model="highResIterationSteps" :disabled="!highResolutionEnabled" :min="0" :max="100"></el-slider>
+              </el-form-item>
+            </el-col>
+          </el-row>
+        </div>
 
         <!-- 分辨率设置 -->
         <el-row :gutter="20">
@@ -184,10 +251,10 @@ export default {
     const checkpoints = ref([]);
     const positivePrompt = ref('');
     const negativePrompt = ref('');
-    const samplingMethod = ref('euler');
     const lora = ref('lora1');
     const iterationSteps = ref(30);
-    const style = ref('写实');
+    const style = ref('写实（real）');
+    const styleType = ref('自然（nature）');
     const size = ref('512');
     const width = ref(512);
     const height = ref(512);
@@ -197,6 +264,69 @@ export default {
     const previewImages = ref(['https://placehold.co/600x400']);
     const currentIndex = ref(0);
     const loading = ref(false);
+
+    // 采样方式选项
+    const samplingOptions = [
+      { label: 'DPM++ 2M', value: 'DPM++ 2M' },
+      { label: 'DPM++ SDE', value: 'DPM++ SDE', disabled: false }, // 默认选中
+      { label: 'DPM++ 2M SDE', value: 'DPM++ 2M SDE' },
+      { label: 'DPM++ 2M SDE Heun', value: 'DPM++ 2M SDE Heun' },
+      { label: 'DPM++ 2S a', value: 'DPM++ 2S a' },
+      { label: 'DPM++ 3M SDE', value: 'DPM++ 3M SDE' },
+      { label: 'Euler a', value: 'Euler a' },
+      { label: 'Euler', value: 'Euler' },
+      { label: 'LMS', value: 'LMS' },
+      { label: 'Heun', value: 'Heun' },
+      { label: 'DPM2', value: 'DPM2' },
+      { label: 'DPM2 a', value: 'DPM2 a' },
+      { label: 'DPM fast', value: 'DPM fast' },
+      { label: 'DPM adaptive', value: 'DPM adaptive' },
+      { label: 'DDIM', value: 'DDIM' },
+      { label: 'DDIM CFG++', value: 'DDIM CFG++' },
+      { label: 'PLMS', value: 'PLMS' },
+      { label: 'UniPC', value: 'UniPC' },
+      { label: 'LCM', value: 'LCM' },
+    ];
+    const samplingMethod = ref('DPM++ 2M');
+    // 新增数据绑定
+    const highResolutionEnabled = ref(true); // 默认关闭高分辨率修复
+    const algorithm = ref('latent'); // 算法选择，默认为 Latent
+    const magnificationFactor = ref(2); // 放大倍数，默认为 2
+    const redrawIntensity = ref(0.5); // 重绘强度，默认为 0.5
+    const highResIterationSteps = ref(0); // 高分迭代步骤，默认为 0
+
+    const schedulerType = ref('Automatic'); // 默认选中 "Automatic"
+
+    // 调度类型选项
+    const schedulerOptions = [
+      { label: 'Automatic', value: 'Automatic' },
+      { label: 'Uniform', value: 'Uniform' },
+      { label: 'Karras', value: 'Karras' },
+      { label: 'Exponential', value: 'Exponential' },
+      { label: 'Polyexponential', value: 'Polyexponential' },
+      { label: 'SGM Uniform', value: 'SGM Uniform' },
+      { label: 'KL Optimal', value: 'KL Optimal' },
+      { label: 'Align Your Steps', value: 'Align Your Steps' },
+      { label: 'Simple', value: 'Simple' },
+      { label: 'Normal', value: 'Normal' },
+      { label: 'DDIM', value: 'DDIM' },
+      { label: 'Beta', value: 'Beta' },
+    ];
+
+    const handleIterationStepsChange = (val) => {
+      iterationSteps.value = Math.min(Math.max(val, 1), 100);
+    };
+
+    const handleIterationStepsInput = (event) => {
+      const rawValue = event.target.value;
+      const parsedValue = parseInt(rawValue);
+
+      if (!isNaN(parsedValue)) {
+        const clampedValue = Math.min(Math.max(parsedValue, 1), 100);
+        iterationSteps.value = clampedValue;
+        handleIterationStepsChange(clampedValue);
+      }
+    };
 
     // 定义缓存键名
     const CACHE_KEY = 'textToImageFormData';
@@ -211,12 +341,20 @@ export default {
         lora: lora.value,
         iterationSteps: iterationSteps.value,
         style: style.value,
+        styleType: styleType.value,
         size: size.value,
         width: width.value,
         height: height.value,
         quantity: quantity.value,
         randomSeed: randomSeed.value,
-        guidanceScale: guidanceScale.value
+        guidanceScale: guidanceScale.value,
+        schedulerType: schedulerType.value,
+        // 新增数据
+        highResolutionEnabled: highResolutionEnabled.value,
+        algorithm: algorithm.value,
+        magnificationFactor: magnificationFactor.value,
+        redrawIntensity: redrawIntensity.value,
+        highResIterationSteps: highResIterationSteps.value,
       };
       sessionStorage.setItem(CACHE_KEY, JSON.stringify(formData));
       sessionStorage.setItem(CHECK_POINT_KEY, checkpoint.value);
@@ -245,8 +383,18 @@ export default {
           positivePrompt.value = parsedData.positivePrompt || '';
           negativePrompt.value = parsedData.negativePrompt || '';
           samplingMethod.value = parsedData.samplingMethod || 'euler';
+
+          highResolutionEnabled.value = parsedData.highResolutionEnabled || false;
+          algorithm.value = parsedData.algorithm || 'latent';
+          magnificationFactor.value = Number(parsedData.magnificationFactor) || 2;
+          redrawIntensity.value = Number(parsedData.redrawIntensity) || 0.5;
+          highResIterationSteps.value = Number(parsedData.highResIterationSteps) || 0;
+          schedulerType.value= parsedData.schedulerType || 'Automatic';
+
+
           lora.value = parsedData.lora || 'lora1';
-          style.value = parsedData.style || '写实';
+          style.value = parsedData.style || '写实（real）';
+          styleType.value = parsedData.styleType || '自然（nature）';
           size.value = parsedData.size || '512';
         } catch (e) {
           console.error('加载缓存数据失败:', e);
@@ -262,6 +410,7 @@ export default {
         samplingMethod: samplingMethod.value,
         lora: lora.value,
         style: style.value,
+        styleType: styleType.value,
         quantity: quantity.value,
         width: width.value,
         height: height.value,
@@ -269,11 +418,20 @@ export default {
         guidanceScale: guidanceScale.value,
         seed: randomSeed.value,
         size: size.value,
+
+        // 新增参数
+        highResolutionEnabled: highResolutionEnabled.value,
+        algorithm: algorithm.value,
+        magnificationFactor: magnificationFactor.value,
+        redrawIntensity: redrawIntensity.value,
+        highResIterationSteps: highResIterationSteps.value,
+
+        schedulerType:schedulerType.value,
       };
 
       const loadingInstance = ElLoading.service({
         lock: true,
-        background: 'rgba(0, 0, 0, 0.5)'
+        background: 'rgba(0, 0, 0, 0.5)',
       });
       api.generateImage(payload)
           .then(response => {
@@ -415,9 +573,9 @@ export default {
     }, { deep: true }); // immediate:true 用于初始化时自动执行
 
     watch([
-      positivePrompt, negativePrompt, samplingMethod,
-      lora, iterationSteps, style, width, height, quantity,
-      randomSeed, guidanceScale
+      positivePrompt, negativePrompt, samplingMethod, lora, iterationSteps, style, size,
+      width, height, quantity, randomSeed, guidanceScale, highResolutionEnabled, algorithm,
+      magnificationFactor, redrawIntensity, highResIterationSteps,
     ], () => {
       saveFormData();
     }, { deep: true });
@@ -432,6 +590,7 @@ export default {
       lora,
       iterationSteps,
       style,
+      styleType,
       size,
       width,
       height,
@@ -449,6 +608,16 @@ export default {
       handleHeightInput,
       handleRandomSeedInput,
       handleGuidanceScaleInput,
+      highResolutionEnabled,
+      algorithm,
+      magnificationFactor,
+      redrawIntensity,
+      highResIterationSteps,
+      samplingOptions,
+      handleIterationStepsChange,
+      handleIterationStepsInput,
+      schedulerType,
+      schedulerOptions,
     };
   },
 };
@@ -552,6 +721,11 @@ export default {
 .el-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.el-form-item__label{
+  width: auto !important;
+  min-width: 45px;
 }
 
 </style>
@@ -663,5 +837,29 @@ export default {
   background-color: #1a1a1a;
   border-radius: 8px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+}
+
+.high-resolution-repair {
+  margin-top: 20px;
+  padding: 8px;
+  border: #646161 1px solid;
+}
+
+.high-resolution-repair .el-checkbox {
+  margin-bottom: 10px;
+}
+
+.high-resolution-repair .el-row {
+  margin-top: 10px;
+}
+
+@media (max-width: 768px) {
+  .high-resolution-repair .el-row {
+    flex-direction: column;
+  }
+
+  .high-resolution-repair .el-col {
+    margin-bottom: 10px;
+  }
 }
 </style>
